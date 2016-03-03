@@ -8,7 +8,7 @@
 	<artifactId>jettyweb</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
-	<name>jettyweb</name>
+	<name>Jettyweb</name>
 	<url>www.cec.jettyweb.com</url>
 
 	<properties>
