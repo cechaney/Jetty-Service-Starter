@@ -1,5 +1,7 @@
-package com.cec.jettyweb;
+package com.cec.jettyweb.proxy;
 
+import com.cec.jettyweb.App;
+import com.cec.jettyweb.AppSettings;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -8,11 +10,14 @@ import org.apache.log4j.Logger;
 import org.eclipse.jetty.proxy.ProxyServlet;
 
 
-public class ContentProxy extends ProxyServlet {
+public class ContentProxyServlet extends ProxyServlet {
 
 	private static final long serialVersionUID = 1L;
+	
+	public static final String NAME = "ContentProxyServlet";
+	public static final String PATH = "/proxy";
 
-	private static final Logger LOGGER = Logger.getLogger(ContentProxy.class);
+	private static final Logger LOGGER = Logger.getLogger(ContentProxyServlet.class);
 
 	@Override
 	public void init(ServletConfig config) throws ServletException {
@@ -24,7 +29,7 @@ public class ContentProxy extends ProxyServlet {
 
             if(App.getProps() != null){
 
-                return App.getProps().getProperty(AppSettings.proxyUrl);
+                return App.getProps().getProperty(AppSettings.PROXY_URL);
 
             } else {
 

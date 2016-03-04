@@ -5,46 +5,86 @@ import java.io.InputStream;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
-import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
-import org.eclipse.jetty.rewrite.handler.RewriteHandler;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
+import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.server.handler.gzip.GzipHandler;
-import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Slf4jLog;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
+import com.cec.jettyweb.proxy.ContentProxyServlet;
+import com.cec.jettyweb.web.HelloServlet;
+
+import org.eclipse.jetty.server.handler.DefaultHandler;
+
 public class App {
 
-    private static final Logger LOGGER = Logger.getLogger(App.class);
+    private static Logger LOGGER = Logger.getLogger(App.class);
 
     private static Properties props = null;
-    private static String resourceDir = null;
+
+    private static String resourceBase = null;
 
     public static void main(String[] args) throws Exception {
 
         try {
 
-            configureLogging();
-            configureProperties();
-            configureResourcesDir();
+        	Log.setLog(new Slf4jLog());
+
+            try{InputStream inputStream = App.class.getClassLoader().getResourceAsStream(AppSettings.PROPERTIES_FILE);
+
+	            props = new Properties();
+	            props.load(inputStream);
+
+            } catch(IOException ioe){
+            	LOGGER.error("Unable to load properties. Startup aborted", ioe);
+            	return;
+            }
+            
+            resourceBase = App.class.
+                    getClassLoader().
+                    getResource(props.getProperty(AppSettings.RESOURCE_DIR)).
+                    toExternalForm();
 
             Server server = new Server(createThreadPool());
+            server.addConnector(createConnector(server));
 
-            ServerConnector connector = createConnector(server);
-            server.addConnector(connector);
+            GzipHandler gzipHandler = new GzipHandler();
 
-            ServletContextHandler context = createContext();
-            HandlerList handlers = createHandlers(context);
+            server.setHandler(gzipHandler);
 
-            server.setHandler(handlers);
+            ResourceHandler resourceHandler = new ResourceHandler();
+            resourceHandler.setDirectoriesListed(false);
+            resourceHandler.setResourceBase(resourceBase);
 
-            addServlets(context);
+            ContextHandler resourceContext = new ContextHandler();
+            resourceContext.setContextPath(props.getProperty(AppSettings.RESOURCE_PATH));
+            resourceContext.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
+            resourceContext.setHandler(resourceHandler);
+
+            ServletContextHandler servletContext = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
+            servletContext.setContextPath(props.getProperty(AppSettings.CONTEXT_PATH));
+            servletContext.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
+            servletContext.setResourceBase(resourceBase);
+
+            HandlerList handlers = new HandlerList();
+
+            handlers.setHandlers(
+                    new Handler[]{
+                        resourceContext,
+                        servletContext,
+                        new DefaultHandler()
+                    });
+
+            gzipHandler.setHandler(handlers);
+
+            addServlets(servletContext);
 
             server.start();
             server.join();
@@ -62,55 +102,13 @@ public class App {
     public static void setProps(Properties props) {
         App.props = props;
     }
-
-    private static void addServlets(ServletContextHandler context) {
-        context.addServlet(createRootServlet(), "/");
-        context.addServlet(createProxyServlet(), "/hfapp");
-    }
-
-    private static HandlerList createHandlers(ServletContextHandler context) {
-
-        HandlerList handlers = new HandlerList();
-
-        GzipHandler gzipHandler = createGzipHandler(context);
-        RewriteHandler rewriteHandler = createRewriteHandler(context);
-
-        handlers.setHandlers(
-                new Handler[]{
-                    gzipHandler,
-                    rewriteHandler,});
-
-        return handlers;
-    }
-
-    private static void configureProperties() throws IOException {
-
-        InputStream inputStream = App.class.getClassLoader().getResourceAsStream(AppSettings.propertiesFile);
-
-        props = new Properties();
-        props.load(inputStream);
-
-    }
-
-    private static void configureLogging() throws Exception {
-        //Set the Jetty log to the log4j logger config via slf4j
-        Log.setLog(new Slf4jLog());
-    }
-
-    private static void configureResourcesDir() {
-
-        resourceDir = App.class.
-                getClassLoader().
-                getResource(props.getProperty(AppSettings.resourceDir)).
-                toExternalForm();
-    }
-
+    
     private static QueuedThreadPool createThreadPool() {
 
         QueuedThreadPool threadPool = new QueuedThreadPool();
 
-        threadPool.setMaxThreads(Integer.parseInt(props.getProperty(AppSettings.minThreads)));
-        threadPool.setMinThreads(Integer.parseInt(props.getProperty(AppSettings.maxThreads)));
+        threadPool.setMaxThreads(Integer.parseInt(props.getProperty(AppSettings.MIN_THREADS)));
+        threadPool.setMinThreads(Integer.parseInt(props.getProperty(AppSettings.MAX_THREADS)));
 
         return threadPool;
     }
@@ -119,63 +117,38 @@ public class App {
 
         ServerConnector connector = new ServerConnector(server);
 
-        connector.setPort(Integer.parseInt(props.get(AppSettings.port).toString()));
-        connector.setIdleTimeout(Integer.parseInt(props.get(AppSettings.idleTimeout).toString()));
+        connector.setPort(Integer.parseInt(props.get(AppSettings.PORT).toString()));
+        connector.setIdleTimeout(Integer.parseInt(props.get(AppSettings.IDLE_TIMEOUT).toString()));
 
         return connector;
     }
 
-    private static ServletContextHandler createContext() {
+    private static void addServlets(ServletContextHandler context) {
 
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
-
-        context.setContextPath(props.getProperty(AppSettings.contextPath));
-
-        return context;
+        context.addServlet(
+        		new ServletHolder(ContentProxyServlet.NAME, ContentProxyServlet.class),
+        		ContentProxyServlet.PATH);
+        
+        context.addServlet(
+        		new ServletHolder(HelloServlet.NAME, HelloServlet.class),
+        		HelloServlet.PATH);
     }
 
-    private static ServletHolder createRootServlet() {
-
-        ServletHolder rootServlet = new ServletHolder("default", DefaultServlet.class);
-
-        rootServlet.setInitParameter("resourceBase", resourceDir);
-
-        return rootServlet;
-    }
-
-    private static ServletHolder createProxyServlet() {
-
-        ServletHolder proxyServlet = new ServletHolder(ContentProxy.class);
-
-        return proxyServlet;
-    }
-
-    private static GzipHandler createGzipHandler(ServletContextHandler context) {
-
-        GzipHandler gzipHandler = new GzipHandler();
-
-        gzipHandler.setHandler(context);
-
-        return gzipHandler;
-    }
-
-    private static RewriteHandler createRewriteHandler(ServletContextHandler context) {
-
-        RewriteHandler rewriteHandler = new RewriteHandler();
-
-        rewriteHandler.setRewriteRequestURI(true);
-        rewriteHandler.setRewritePathInfo(false);
-        rewriteHandler.setOriginalPathAttribute("requestedPath");
-
-        RedirectPatternRule redirect = new RedirectPatternRule();
-
-        redirect.setPattern("/");
-        redirect.setLocation(props.get(AppSettings.contextPath).toString());
-        rewriteHandler.addRule(redirect);
-
-        rewriteHandler.setHandler(context);
-
-        return rewriteHandler;
-    }
-
+//    private static RewriteHandler createRewriteHandler(ServletContextHandler context) {
+//
+//        RewriteHandler rewriteHandler = new RewriteHandler();
+//
+//        rewriteHandler.setRewriteRequestURI(true);
+//        rewriteHandler.setRewritePathInfo(false);
+//        rewriteHandler.setOriginalPathAttribute("requestedPath");
+//
+//        RedirectPatternRule rootRedirect = new RedirectPatternRule();
+//        rootRedirect.setPattern(ROOT_PATH);
+//        rootRedirect.setLocation(props.get(AppSettings.contextPath).toString() + SBOTD_PATH);
+//        rewriteHandler.addRule(rootRedirect);
+//
+//        rewriteHandler.setHandler(context);
+//
+//        return rewriteHandler;
+//    }
 }
