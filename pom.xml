@@ -1,6 +1,4 @@
-<project
-	xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
@@ -14,14 +12,13 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java.version>1.8</java.version>
-		<jettyVersion>9.3.8.RC0</jettyVersion>
+		<jetty.version>9.3.8.RC0</jetty.version>
 		<log4j.version>1.2.17</log4j.version>
 		<slf4j.log4j.version>1.7.12</slf4j.log4j.version>
 		<maven-compiler-plugin-version>3.5.1</maven-compiler-plugin-version>
 		<maven-assembly-plugin-version>2.6</maven-assembly-plugin-version>
 		<maven-jar-plugin-version>2.6</maven-jar-plugin-version>
-		<maven-antrun-plugin-version>1.8</maven-antrun-plugin-version>
-		<ant-version>1.9.4</ant-version>
+		<maven-exec-maven-plugin-version>1.3</maven-exec-maven-plugin-version>
 		<start-class>com.cec.jettyweb.App</start-class>
 	</properties>
 
@@ -29,22 +26,22 @@
 		<dependency>
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-server</artifactId>
-			<version>${jettyVersion}</version>
+			<version>${jetty.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-servlet</artifactId>
-			<version>${jettyVersion}</version>
+			<version>${jetty.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-rewrite</artifactId>
-			<version>${jettyVersion}</version>
+			<version>${jetty.version}</version>
 		</dependency>
 		<dependency>
-		    <groupId>org.eclipse.jetty</groupId>
-		    <artifactId>jetty-proxy</artifactId>
-		    <version>${jettyVersion}</version>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-proxy</artifactId>
+			<version>${jetty.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
@@ -111,32 +108,22 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-antrun-plugin</artifactId>
-				<version>${maven-antrun-plugin-version}</version>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>${maven-exec-maven-plugin-version}</version>
 				<executions>
 					<execution>
-						<phase>install</phase>
 						<goals>
-							<goal>run</goal>
+							<goal>java</goal>
 						</goals>
-						<configuration>
-							<target>
-								<echoproperties destfile="${env.TMPDIR}/${project.artifactId}.properties" />
-							</target>
-						</configuration>
 					</execution>
 				</executions>
-				<dependencies>
-					<dependency>
-						<groupId>org.apache.ant</groupId>
-						<artifactId>ant</artifactId>
-						<version>${ant-version}</version>
-					</dependency>
-				</dependencies>
+				<configuration>
+					<mainClass>com.cec.jettyweb.App</mainClass>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
 	<repositories>
-        </repositories>
+	</repositories>
 </project>
