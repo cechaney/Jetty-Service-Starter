@@ -8,10 +8,10 @@ import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.server.handler.DefaultHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
-import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.server.handler.gzip.GzipHandler;
+import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.log.Log;
@@ -21,15 +21,11 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import com.cec.jettyweb.proxy.ContentProxyServlet;
 import com.cec.jettyweb.web.HelloServlet;
 
-import org.eclipse.jetty.server.handler.DefaultHandler;
-
 public class App {
 
     private static Logger LOGGER = Logger.getLogger(App.class);
 
     private static Properties props = null;
-
-    private static String resourceBase = null;
 
     public static void main(String[] args) throws Exception {
 
@@ -46,44 +42,28 @@ public class App {
             	LOGGER.error("Unable to load properties. Startup aborted", ioe);
             	return;
             }
-            
-            resourceBase = App.class.
-                    getClassLoader().
-                    getResource(props.getProperty(AppSettings.RESOURCE_DIR)).
-                    toExternalForm();
-
-            Server server = new Server(createThreadPool());
-            server.addConnector(createConnector(server));
-
-            GzipHandler gzipHandler = new GzipHandler();
-
-            server.setHandler(gzipHandler);
-
-            ResourceHandler resourceHandler = new ResourceHandler();
-            resourceHandler.setDirectoriesListed(false);
-            resourceHandler.setResourceBase(resourceBase);
-
-            ContextHandler resourceContext = new ContextHandler();
-            resourceContext.setContextPath(props.getProperty(AppSettings.RESOURCE_PATH));
-            resourceContext.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
-            resourceContext.setHandler(resourceHandler);
 
             ServletContextHandler servletContext = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
             servletContext.setContextPath(props.getProperty(AppSettings.CONTEXT_PATH));
             servletContext.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
-            servletContext.setResourceBase(resourceBase);
+            
+            Server server = new Server(createThreadPool());
+            server.addConnector(createConnector(server));            
+            
+            GzipHandler gzipHandler = new GzipHandler();
+            
+            server.setHandler(gzipHandler);
 
             HandlerList handlers = new HandlerList();
 
             handlers.setHandlers(
                     new Handler[]{
-                        resourceContext,
                         servletContext,
                         new DefaultHandler()
                     });
 
             gzipHandler.setHandler(handlers);
-
+            
             addServlets(servletContext);
 
             server.start();
@@ -124,6 +104,8 @@ public class App {
     }
 
     private static void addServlets(ServletContextHandler context) {
+    	
+    	context.addServlet(createDefaultServletHolder(), "/");
 
         context.addServlet(
         		new ServletHolder(ContentProxyServlet.NAME, ContentProxyServlet.class),
@@ -132,6 +114,25 @@ public class App {
         context.addServlet(
         		new ServletHolder(HelloServlet.NAME, HelloServlet.class),
         		HelloServlet.PATH);
+    }
+    
+    private static ServletHolder createDefaultServletHolder(){
+    	
+    	ServletHolder defaultHolder = null;
+    	
+        String resourceBase = App.class.
+                getClassLoader().
+                getResource(props.getProperty(AppSettings.RESOURCE_DIR)).
+                toExternalForm();    	
+    	
+        defaultHolder = new ServletHolder("Default", DefaultServlet.class);
+
+        defaultHolder.setInitParameter("resourceBase", resourceBase);
+        defaultHolder.setInitParameter("dirAllowed", "false");
+        defaultHolder.setInitParameter("gzip", "false");    	
+    	
+    	return defaultHolder;
+    	
     }
 
 //    private static RewriteHandler createRewriteHandler(ServletContextHandler context) {
