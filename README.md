@@ -1,4 +1,4 @@
-# Micro Service Starter
+# Jetty WebApp Starter
 A Jetty embedded web application built as as jar with Maven.
 
 This project is an excellent starter for a micro-service and a good alternative
